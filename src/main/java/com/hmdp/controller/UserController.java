@@ -52,8 +52,6 @@ public class UserController {
         // TODO 实现登录功能
         return Result.ok(userService.login(loginForm,session));
 
-
-
     }
 
     /**
