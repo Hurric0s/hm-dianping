@@ -17,7 +17,7 @@ import javax.servlet.http.HttpSession;
  */
 public interface IUserService extends IService<User> {
 
-    void sendCode(String phone, HttpSession session);
+    String sendCode(String phone, HttpSession session);
 
     String login(LoginFormDTO loginForm, HttpSession session) throws FailedLoginException;
 }

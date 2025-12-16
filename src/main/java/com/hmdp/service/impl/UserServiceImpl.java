@@ -14,7 +14,6 @@ import com.hmdp.service.IUserService;
 import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.RegexUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -42,13 +41,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
 
     @Override
-    public void sendCode(String phone, HttpSession session) {//session 不是前端传的，而是 Spring 自动根据 Cookie 里的 sessionId 找到并注入的。
+    public String sendCode(String phone, HttpSession session) {//session 不是前端传的，而是 Spring 自动根据 Cookie 里的 sessionId 找到并注入的。
         if (RegexUtils.isPhoneInvalid(phone)) {
             throw new PhoneNumberException("电话号码格式错误");//验证手机格式
         }
         String code = RandomUtil.randomNumbers(6);
         stringRedisTemplate.opsForValue().set(RedisConstants.LOGIN_CODE_KEY + phone, code, RedisConstants.LOGIN_CODE_TTL, TimeUnit.MINUTES);//将验证码存入redis，设置过期时间为2分钟
         log.info("验证码为{}", code);
+        return code;
     }
 
     @Override
@@ -78,7 +78,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                                 fieldValue == null ? null : fieldValue.toString())
         );//将userDTO转换为map
         stringRedisTemplate.opsForHash().putAll(RedisConstants.LOGIN_USER_KEY + token, userMap);//将用户信息存入redis
-        stringRedisTemplate.expire(RedisConstants.LOGIN_USER_KEY + token, RedisConstants.LOGIN_USER_TTL, TimeUnit.MINUTES);//设置过期时间
+        stringRedisTemplate.expire(RedisConstants.LOGIN_USER_KEY + token, RedisConstants.LOGIN_USER_TTL, TimeUnit.HOURS);//设置过期时间
         return  token;
 
     }
