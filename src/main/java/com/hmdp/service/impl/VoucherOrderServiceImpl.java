@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.SeckillVoucher;
 import com.hmdp.entity.VoucherOrder;
+import com.hmdp.lock.RedisLock;
 import com.hmdp.mapper.SeckillVoucherMapper;
 import com.hmdp.mapper.VoucherOrderMapper;
 import com.hmdp.service.ISeckillVoucherService;
@@ -13,6 +14,7 @@ import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     RedisIdWorker redisIdWorker;
     @Autowired
     SeckillVoucherMapper seckillVoucherMapper;
+    @Autowired
+    StringRedisTemplate stringRedisTemplate;
 
     @Override
     @Transactional
@@ -52,29 +56,35 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (voucher.getStock() <= 0) {
             return Result.fail("优惠卷已经无库存！");
         }
-        synchronized (userid.toString().intern()) {
-            // 创建代理对象，使用代理对象调用第三方事务方法， 防止事务失效
+        RedisLock redisLock = new RedisLock(RedisConstants.LOCK_ORDER_KEY + userid, stringRedisTemplate);
+        Boolean islock = redisLock.tryLock(RedisConstants.LOCK_ORDER_TTL);
+        if (!islock) {
+            return Result.fail("不允许重复下单！");
+
+        }
+        try {// 创建代理对象，使用代理对象调用第三方事务方法， 防止事务失效
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(userid, voucherId);
+        } finally {
+            redisLock.unlock();
         }
-
     }
 
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Result createVoucherOrder(Long userid, Long voucherId) {
         int count = query().eq("voucher_id", voucherId).eq("user_id", userid).count();
         if (count > 0) {
-           throw new RuntimeException( "不能重复购买！");
+            throw new RuntimeException("不能重复购买！");
         }
         int updated = seckillVoucherMapper.deductStock(voucherId);
         if (updated == 0) {
-            throw new RuntimeException( "库存不足！");
+            throw new RuntimeException("库存不足！");
         }
         long id = redisIdWorker.getNextId(RedisConstants.CACHE_VOUCHER_KEY);//订单id
         VoucherOrder voucherOrder = VoucherOrder.builder().id(id).userId(userid).payTime(LocalDateTime.now()).voucherId(voucherId).build();
-        if(!save(voucherOrder)){
+        if (!save(voucherOrder)) {
             throw new RuntimeException("订单创建失败！");
         }
         return Result.ok(id);
