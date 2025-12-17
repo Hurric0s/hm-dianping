@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.SeckillVoucher;
 import com.hmdp.entity.VoucherOrder;
-import com.hmdp.lock.RedisLock;
 import com.hmdp.mapper.SeckillVoucherMapper;
 import com.hmdp.mapper.VoucherOrderMapper;
 import com.hmdp.service.ISeckillVoucherService;
@@ -12,6 +11,8 @@ import com.hmdp.service.IVoucherOrderService;
 import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -38,10 +39,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     SeckillVoucherMapper seckillVoucherMapper;
     @Autowired
     StringRedisTemplate stringRedisTemplate;
+    @Autowired
+    RedissonClient redissonClient;
 
     @Override
-    @Transactional
-    public Result buySeckillVoucher(Long voucherId) {
+    public Result buySeckillVoucher(Long voucherId) throws InterruptedException {
         Long userid = UserHolder.getUser().getId();
         SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
         if (voucher == null) {
@@ -56,17 +58,17 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (voucher.getStock() <= 0) {
             return Result.fail("优惠卷已经无库存！");
         }
-        RedisLock redisLock = new RedisLock(RedisConstants.LOCK_ORDER_KEY + userid, stringRedisTemplate);
-        Boolean islock = redisLock.tryLock(RedisConstants.LOCK_ORDER_TTL);
+        //RedisLock redisLock = new RedisLock(RedisConstants.LOCK_ORDER_KEY + userid, stringRedisTemplate);
+        RLock lock=   redissonClient.getLock(RedisConstants.LOCK_ORDER_KEY + userid);
+        boolean islock = lock.tryLock();
         if (!islock) {
             return Result.fail("不允许重复下单！");
-
         }
         try {// 创建代理对象，使用代理对象调用第三方事务方法， 防止事务失效
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(userid, voucherId);
         } finally {
-            redisLock.unlock();
+            lock.unlock();
         }
     }
 

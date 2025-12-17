@@ -24,4 +24,5 @@ public class RedisConstants {
     public static final String CACHE_VOUCHER_KEY = "voucher:";
     public static final String LOCK_ORDER_KEY ="order:" ;
     public static final Long LOCK_ORDER_TTL = 1200L;
+    public static final Long LOCK_WAIT_TIME = 1L;
 }

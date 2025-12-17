@@ -14,7 +14,7 @@ import com.hmdp.entity.VoucherOrder;
  */
 public interface IVoucherOrderService extends IService<VoucherOrder> {
 
-    Result buySeckillVoucher(Long voucherId);
+    Result buySeckillVoucher(Long voucherId) throws InterruptedException;
 
     Result createVoucherOrder(Long userid, Long voucherId);
 }
