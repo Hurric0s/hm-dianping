@@ -53,7 +53,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Override
     public String login(LoginFormDTO loginForm, HttpSession session) throws FailedLoginException {
-        if (RegexUtils.isPhoneInvalid(loginForm.getPhone())) {
+         if (RegexUtils.isPhoneInvalid(loginForm.getPhone())) {
             throw new PhoneNumberException("电话号码格式错误");
         }
         String code=  stringRedisTemplate.opsForValue().get(RedisConstants.LOGIN_CODE_KEY + loginForm.getPhone());//从redis中获取验证码和前端传过来的验证码进行比对

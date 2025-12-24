@@ -12,5 +12,5 @@ if redis.call("hexists", key, threadId) == 0 then
     redis.call("expire", key, releaseTime)
 else
     redis.call("hincrby", key, threadId,'1')-- 重入次数加1
-    redis.call("expire", key, releaseTime)
+    redis.call("expire", key, releaseTime)-- 重新设置过期时间
 end
