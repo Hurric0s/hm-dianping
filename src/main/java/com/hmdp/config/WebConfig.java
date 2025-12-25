@@ -23,9 +23,9 @@ public class WebConfig extends WebMvcConfigurationSupport {
 
     @Override
     protected void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(refreshTokenInterceptor).addPathPatterns("/**");
+        registry.addInterceptor(refreshTokenInterceptor).addPathPatterns("/**").order(0);
         registry.addInterceptor(loginInterceptor)
-                .excludePathPatterns("/user/logout", "/user/login", "/shop/**", "/voucher/**", "/upload/**", "/user/code", "/blog/hot", "/shop-type/**");
+                .excludePathPatterns("/user/logout", "/user/login", "/shop/**", "/voucher/**", "/upload/**", "/user/code", "/blog/hot", "/shop-type/**").order(1);;
     }
     @Override
     protected void extendMessageConverters(List<HttpMessageConverter<?>> converters) {// 扩展消息转换器

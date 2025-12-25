@@ -1,9 +1,9 @@
 package com.hmdp.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.bean.copier.CopyOptions;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.UserDTO;
@@ -21,8 +21,6 @@ import org.springframework.stereotype.Service;
 import javax.security.auth.login.FailedLoginException;
 import javax.servlet.http.HttpSession;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -53,10 +51,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Override
     public String login(LoginFormDTO loginForm, HttpSession session) throws FailedLoginException {
-         if (RegexUtils.isPhoneInvalid(loginForm.getPhone())) {
+        if (RegexUtils.isPhoneInvalid(loginForm.getPhone())) {
             throw new PhoneNumberException("电话号码格式错误");
         }
-        String code=  stringRedisTemplate.opsForValue().get(RedisConstants.LOGIN_CODE_KEY + loginForm.getPhone());//从redis中获取验证码和前端传过来的验证码进行比对
+        String code = stringRedisTemplate.opsForValue().get(RedisConstants.LOGIN_CODE_KEY + loginForm.getPhone());//从redis中获取验证码和前端传过来的验证码进行比对
         if (code == null || !code.equals(loginForm.getCode())) {
             throw new FailedLoginException("验证码错误");
         }
@@ -68,18 +66,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 throw new FailedLoginException("用户注册失败");
             }
         }
-        String token= UUID.randomUUID().toString(true);
-        UserDTO userDTO= new UserDTO();
-        BeanUtil.copyProperties(user,userDTO);
-        Map<String, Object> userMap = BeanUtil.beanToMap(userDTO, new HashMap<>(),
-                CopyOptions.create()
-                        .setIgnoreNullValue(true)
-                        .setFieldValueEditor((fieldName, fieldValue) ->
-                                fieldValue == null ? null : fieldValue.toString())
-        );//将userDTO转换为map
-        stringRedisTemplate.opsForHash().putAll(RedisConstants.LOGIN_USER_KEY + token, userMap);//将用户信息存入redis
-        stringRedisTemplate.expire(RedisConstants.LOGIN_USER_KEY + token, RedisConstants.LOGIN_USER_TTL, TimeUnit.HOURS);//设置过期时间
-        return  token;
+        String token = UUID.randomUUID().toString(true);
+        log.info("用户登录成功，token为{}", token);
+
+// 2. User -> UserDTO
+        UserDTO userDTO = new UserDTO();
+        BeanUtil.copyProperties(user, userDTO);
+
+// 3. 转成 JSON 字符串
+        String userJson = JSONUtil.toJsonStr(userDTO);
+
+// 4. 存入 Redis（String 类型）
+        String key = RedisConstants.LOGIN_USER_KEY + token;
+        stringRedisTemplate.opsForValue().set(
+                key,
+                userJson,
+                RedisConstants.LOGIN_USER_TTL,
+                TimeUnit.HOURS
+        );
+
+// 5. 返回 token
+        return token;
 
     }
 
