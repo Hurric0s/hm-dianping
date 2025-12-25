@@ -25,4 +25,6 @@ public class RedisConstants {
     public static final String LOCK_ORDER_KEY ="order:" ;
     public static final Long LOCK_ORDER_TTL = 1200L;
     public static final Long LOCK_WAIT_TIME = 1L;
+    public static final String USER_FOLLOW_KEY = "user:follow:";
+
 }

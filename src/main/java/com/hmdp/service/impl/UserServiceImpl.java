@@ -4,15 +4,20 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.LoginFormDTO;
+import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
+import com.hmdp.entity.Blog;
 import com.hmdp.entity.User;
 import com.hmdp.exception.PhoneNumberException;
 import com.hmdp.mapper.UserMapper;
+import com.hmdp.service.IBlogService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.RegexUtils;
+import com.hmdp.utils.SystemConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -21,6 +26,7 @@ import org.springframework.stereotype.Service;
 import javax.security.auth.login.FailedLoginException;
 import javax.servlet.http.HttpSession;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -36,7 +42,8 @@ import java.util.concurrent.TimeUnit;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IUserService {
     @Autowired
     StringRedisTemplate stringRedisTemplate;
-
+    @Autowired
+    IBlogService iblogService;
 
     @Override
     public String sendCode(String phone, HttpSession session) {//session 不是前端传的，而是 Spring 自动根据 Cookie 里的 sessionId 找到并注入的。
@@ -88,6 +95,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 // 5. 返回 token
         return token;
 
+    }
+
+    @Override
+    public Result queryUserBlogsById(Long id, Integer current) {
+        Page<Blog> page = iblogService.query().eq("user_id", id).page(new Page<>(current, SystemConstants.MAX_PAGE_SIZE));
+        List<Blog> blogs = page.getRecords();
+        return Result.ok(blogs);
     }
 
     private User createUserWithPhone(String phone) {
