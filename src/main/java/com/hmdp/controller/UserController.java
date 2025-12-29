@@ -109,4 +109,22 @@ public class UserController {
      public Result queryUserBlogsById (@RequestParam("id") Long id,@RequestParam(value="current", defaultValue="1") Integer current){
         return userService.queryUserBlogsById(id,current);
     }
+
+    /**
+     * 用户签到
+     * @return
+     */
+    @PostMapping("/sign")
+    public Result sign(){
+        return userService.sign();
+    }
+
+    /**
+     * 用户连续签到天数
+     * @return
+     */
+    @PostMapping("/sign/count")
+    public Result signCount(){
+        return userService.signCount();
+    }
 }

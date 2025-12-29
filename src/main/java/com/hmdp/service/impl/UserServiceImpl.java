@@ -18,14 +18,17 @@ import com.hmdp.service.IUserService;
 import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.RegexUtils;
 import com.hmdp.utils.SystemConstants;
+import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.connection.BitFieldSubCommands;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.security.auth.login.FailedLoginException;
 import javax.servlet.http.HttpSession;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -104,6 +107,48 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         return Result.ok(blogs);
     }
 
+    @Override
+    public Result sign() {
+        Long userId = UserHolder.getUser().getId();
+        LocalDateTime time = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy:MM");
+        String formatted = time.format(formatter);
+        int day = LocalDateTime.now().getDayOfMonth();
+        DateTimeFormatter formatter2 = DateTimeFormatter.ofPattern("yyyy年MM月dd日");
+        String showTime = time.format(formatter2);//返回给前端的日期
+        String key = RedisConstants.USER_SIGN_KEY + userId + ":" + formatted;
+        stringRedisTemplate.opsForValue().setBit(key, day - 1, true);
+        return Result.ok("签到成功！签到日期为" + showTime);
+    }
+
+    @Override
+    public Result signCount() {
+        Long userId = UserHolder.getUser().getId();
+        LocalDateTime time = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy:MM");
+        String formatted = time.format(formatter);
+        int day = LocalDateTime.now().getDayOfMonth();
+        String key = RedisConstants.USER_SIGN_KEY + userId + ":" + formatted;
+        List<Long> longs = stringRedisTemplate.opsForValue().bitField(key, BitFieldSubCommands.create()
+                .get(BitFieldSubCommands.BitFieldType.unsigned(day)).valueAt(0));
+        if(longs==null||longs.isEmpty()){
+            return Result.ok("获取连续签到天数失败，签到数据不存在！");
+        }
+        Long num = longs.get(0);//获取到签到的二进制数字,get返回的是一个list，里面只有一个元素,因为只获取了一次
+        if(num==0){
+            return Result.ok("连续签到天数：0");
+        }
+        while((1&num)==0) {num>>=1;}//从后往前找到第一个已经签到的天数
+        int count=0;
+        while(true){//统计连续签到天数
+            if((1&num)==1){
+                count++;
+                num>>=1;
+            }
+            else break;
+        }
+        return Result.ok("连续签到天数："+count);
+    }
     private User createUserWithPhone(String phone) {
         return User.builder().phone(phone).nickName(RandomUtil.randomNumbers(10)).updateTime(LocalDateTime.now()).createTime(LocalDateTime.now()).build();
     }

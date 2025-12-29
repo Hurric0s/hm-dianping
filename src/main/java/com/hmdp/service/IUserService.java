@@ -23,4 +23,8 @@ public interface IUserService extends IService<User> {
     String login(LoginFormDTO loginForm, HttpSession session) throws FailedLoginException;
 
     Result queryUserBlogsById(Long id, Integer current);
+
+    Result sign();
+
+    Result signCount();
 }
